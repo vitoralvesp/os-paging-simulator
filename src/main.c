@@ -1,105 +1,80 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
-#define MAX_PAGES (256)
-#define MAX_FRAMES (64)
-
-PhysicalMemory physical_memory;
-VirtualMemory virtual_memory;
-
-/* Page: estrutura de uma pagina e seus atributos 
-   'id': identificador unico de uma pagina
-   'logical_address': endereco logico da pagina
-   'is_in_physical_memory': identifica se a pagina esta na memoria fisica */
 typedef struct {
     int id;
-    int logical_address;
-    int is_in_physical_memory;
+    int total_of_frames;
 } Page;
 
-/* Frame: estrutura de um frame e seus atributos 
-   'id': identificador unico de um frame
-   'process_id': identificador do processo do frame
-   'page_number': identificador da pagina no frame */
 typedef struct {
-    int id;
     int process_id;
-    int page_number;
-} Frame;
-
-/* PageTable: estrutura de uma tabela de paginas e seus atributos */
-typedef struct {
-    int page_number;
-    int frame_number;
-    int is_in_physical_memory;
+    int total_of_pages;
+    Page *pages;
 } PageTable;
 
-/* Process: estrutura de um processo e seus atributos
-   'pid': identificador unico do processo
-   'total_pages': numero de paginas alocadas para o processo
-   'page_tables': ponteiro para a tabela de paginas do processo */
 typedef struct {
-    int pid;
-    int total_pages;
-    PageTable page_tables[MAX_PAGES];
-} Process;
+    int frame_id;
+    int process_id;
+    int page_id;
+    int status;
+} Frame;
 
-/* PhysicalMemory: estrutura da memoria fisica e seus atributos
-   'size': tamanho da memoria
-   'frames': total de frames disponiveis */
 typedef struct {
-    int size;
-    Frame frames[MAX_FRAMES];
+    int total_of_frames;
+    Frame *frames;
 } PhysicalMemory;
 
-/* VirtualMemory: estrutura da memoria virtual e seus atributos
-   'size': tamanho da memoria
-   'pages': total de paginas disponiveis */
 typedef struct {
-    int size;
-    Page pages[MAX_PAGES];
+    int process_id;
+    int total_of_pages;
+    PageTable page_table;
 } VirtualMemory;
 
+/* ---- */
 void init_physical_memory() {
-    physical_memory.size = MAX_FRAMES;
-    for (int i = 0; i < physical_memory.size; i++) {
-        physical_memory.frames[i].id = i;
-        physical_memory.frames[i].process_id = -1;
-        physical_memory.frames[i].page_number = -1;
-    }
+
+
+
+
+
 }
 
-
-
+void clean_char_arr(char arr[], int arr_size) {
+    for (int i = 0; i < arr_size; i++)
+        arr[i] = '\0';
+}
 
 int main() {
 
-    int menu_option;
+    printf("SIMULACAO DE PAGINACAO\n----------------------\n");
+    printf("Inicializando Memoria Fisica...\n");
+    printf("Lendo Arquivo de Config...\n");
 
+    FILE *file_ptr = fopen("../../docs/config.txt", "r");
 
-    while (1) {
-
-        printf("Simulador de Paginacao\n---\n[ 1 ] Criar novo processo\nEscolha uma opcao: ");
-        scanf("%d", &menu_option);
-
-        if (menu_option > 1) {
-            printf("Saindo...\n\n");
-            break;
-        }
-
-        switch(menu_option) {
-
-            case 1:
-
-                printf();
-
-
-
-        }
-
-
-
+    while (file_ptr == NULL) {
+        printf("Arquivo de Configuracao Nao Encontrado no caminho \"../docs/config.txt\"!!! Tente novamente inserindo o caminho manualmente...\n");
+        char new_path[100];
+        printf("Insira o caminho: ");
+        scanf("%s", new_path);
+        file_ptr = fopen(new_path, "r");
     }
+
+    printf("Arquivo de Config Lido com Sucesso!\n");
+
+    int frames = 0, pages = 0, processes = 0, value = 0;
+    char buffer[100], key[100];
+
+    while (fgets(buffer, 100, file_ptr)) {
+        if (sscanf(buffer, "%s = %d", key, &value)) {
+            if (strcmp(key, "frame_size") == 0) frames = value;
+            else if (strcmp(key, "page_size") == 0) pages = value;
+            else if (strcmp(key, "processes") == 0) processes = value;
+        }
+    }
+
+    printf("Frames: %d\nPages: %d\nProcesses: %d", frames, pages, processes);
 
 
     return 0;

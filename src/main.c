@@ -34,6 +34,7 @@ typedef struct {
 /* ---- */
 VirtualMemory init_process(int pid, int total_of_pages) {
     
+    printf("Inicializando Memoria Virtual...\n");
     VirtualMemory virtual_memory;
     
     virtual_memory.process_id = pid;
@@ -41,6 +42,8 @@ VirtualMemory init_process(int pid, int total_of_pages) {
     
     virtual_memory.page_table.process_id = pid;
     virtual_memory.page_table.total_of_pages = total_of_pages;
+
+    printf("Alocando %d bytes na memoria para as paginas do Processo #%d\n", total_of_pages * sizeof(Page), pid);
     virtual_memory.page_table.pages = (Page *)malloc(total_of_pages * sizeof(Page));
 
     if (virtual_memory.page_table.pages == NULL) {
@@ -58,12 +61,32 @@ VirtualMemory init_process(int pid, int total_of_pages) {
 
 
 
-void init_physical_memory(PhysicalMemory physical_memory, int size) {}
+void init_physical_memory(PhysicalMemory physical_memory, int total_of_frames) {
+    
+    physical_memory.total_of_frames = total_of_frames;
+    
+    printf("Alocando %d bytes na memoria fisica para os frames...\n", total_of_frames * sizeof(Frame));
+    physical_memory.frames = (Frame *)malloc(total_of_frames * sizeof(Frame));
+
+    if (physical_memory.frames == NULL) {
+        printf("ERRO!!! Nao foi possivel alocar espaco na memoria fisica...\n");
+        exit(1);
+    }
+
+    for (int i = 0; i < total_of_frames; i++) {
+        physical_memory.frames[i].frame_id = i;
+        physical_memory.frames[i].process_id = -1;
+        physical_memory.frames[i].page_id = -1;
+    }
+
+}
+
+
+
 
 int main() {
     
     printf("SIMULACAO DE PAGINACAO\n----------------------\n");
-    printf("Inicializando Memoria Fisica...\n");
     printf("Lendo Arquivo de Config...\n");
 
     FILE *file_ptr = fopen("../../docs/config.txt", "r");
@@ -76,7 +99,7 @@ int main() {
         file_ptr = fopen(new_path, "r");
     }
 
-    printf("Arquivo de Config Lido com Sucesso!\n");
+    printf("Arquivo de Config Aberto com Sucesso!\n");
 
     int total_of_frames;
     int total_of_pages;
@@ -92,6 +115,10 @@ int main() {
             else if (strcmp(key, "processes") == 0) total_of_processes = value;
         }
     }
+
+    printf("Inicializando Memoria Fisica...\n");
+    PhysicalMemory physical_memory;
+    init_physical_memory(physical_memory, total_of_frames);
 
     int menu_option;
     VirtualMemory running_processes[total_of_processes];
@@ -131,6 +158,7 @@ int main() {
                 processes_idx++;
                 break;
 
+            case 2:
 
 
 

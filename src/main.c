@@ -59,8 +59,6 @@ VirtualMemory init_process(int pid, int total_of_pages) {
     return virtual_memory;
 }
 
-
-
 void init_physical_memory(PhysicalMemory physical_memory, int total_of_frames) {
     
     physical_memory.total_of_frames = total_of_frames;
@@ -77,12 +75,33 @@ void init_physical_memory(PhysicalMemory physical_memory, int total_of_frames) {
         physical_memory.frames[i].frame_id = i;
         physical_memory.frames[i].process_id = -1;
         physical_memory.frames[i].page_id = -1;
+        physical_memory.frames[i].status = 0;
     }
 
 }
 
+void allocate_page(PhysicalMemory *physical_memory, VirtualMemory *virtual_memory, int page_id) {
 
+    if (page_id >= virtual_memory->total_of_pages) {
+        printf("ERRO!!! PID Invalido...\n");
+        return;
+    }
 
+    for (int i = 0; i < physical_memory->total_of_frames; i++) {
+        if (physical_memory->frames[i].process_id == -1) {
+            
+            physical_memory->frames[i].process_id = virtual_memory->process_id;
+            physical_memory->frames[i].page_id = page_id;
+            virtual_memory->page_table.pages[page_id].frame_id = i;
+            
+            printf("Pagina #%d Alocada no Frame #%d...\n", virtual_memory->page_table.pages[i].id,virtual_memory->page_table.pages[i].frame_id);
+            return;
+        }
+    }
+
+    printf("Nao ha Frame(s) disponiveis para a Pagina #%d do Processo #%d!\n", page_id, virtual_memory->process_id);
+    return;
+}
 
 int main() {
     
@@ -125,7 +144,7 @@ int main() {
 
     while (1) {
 
-        printf("---\nMENU:\n[ 1 ] Criar um Processo\n[ 6 ] Sair\nEscolha uma opcao: ");
+        printf("---\nMENU:\n[ 1 ] Criar um Processo\n[ 2 ] Alocar Pagina\n[ 6 ] Sair\nEscolha uma opcao: ");
         scanf("%d", &menu_option);
 
         if (menu_option == 6) {
@@ -159,9 +178,23 @@ int main() {
                 break;
 
             case 2:
+                
+                printf("---\nAlocando as Paginas do Processo Criado em Frames\n");
 
+                int process_id;
+                int page_id;
 
+                printf("Insira o ID do Processo seguido pelo ID da Pagina na forma \'process_id page_id\': ");
+                scanf("%d %d", &process_id, &page_id);
 
+                for (int i = 0; i < total_of_processes; i++) {
+                    if (running_processes[i].process_id == process_id) {
+                        allocate_page(&physical_memory, &running_processes[i], page_id);
+                        break;
+                    }
+                }
+
+                break;
 
             default:
                 printf("---\nOpcao Invalida!!! Tente Novamente apenas com valores de 1 a 6...\n");

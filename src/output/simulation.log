@@ -1,0 +1,15 @@
+PHYSICAL_MEMORY_INITIALIZED: 64 frames alocados.
+PROCESS_CREATED: Processo #25 com 1 paginas inicializado.
+PAGEFAULT001
+PAGE_ALLOCATED: Pagina #0 do Processo #25 alocada no Frame #41.
+PAGE_ALLOCATED: Pagina #0 do Processo #25 alocada com sucesso no Frame #41.
+PHYSICAL_MEMORY_INITIALIZED: 64 frames alocados.
+PROCESS_CREATED: Processo #25 com 1 paginas inicializado.
+PAGEFAULT001
+PAGE_ALLOCATED: Pagina #0 do Processo #25 alocada no Frame #41.
+PAGE_ALLOCATED: Pagina #0 do Processo #25 alocada com sucesso no Frame #41.
+PHYSICAL_MEMORY_INITIALIZED: 64 frames alocados.
+PROCESS_CREATED: Processo #25 com 1 paginas inicializado.
+PAGEFAULT001
+PAGE_ALLOCATED: Pagina #0 do Processo #25 alocada no Frame #41.
+PAGE_ALLOCATED: Pagina #0 do Processo #25 alocada com sucesso no Frame #41.

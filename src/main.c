@@ -10,6 +10,7 @@ Tiago Silveira Lopez, 10417600
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <math.h>
 
 /* Page: estrutura da pagina
    'id': identificador unico da pagina
@@ -52,16 +53,6 @@ typedef struct
     int total_of_frames;
     Frame *frames;
 } PhysicalMemory;
-
-/* Process: estrutura do processo
-   'process_id': identificador unico do processo 
-   'total_of_pages': numero total de paginas do processo
-   'page_table': tabela de paginas do processo */
-typedef struct {
-    int process_id;
-    int total_of_pages;
-    PageTable page_table;
-} Process;
 
 /* VirtualMemory: estrutura da memoria virtual
    'process_id': identificador unico do processo
@@ -194,10 +185,10 @@ void handle_page_fault(PhysicalMemory *physical_memory, VirtualMemory *virtual_m
     log_operation(log_msg);
 }
 
-/* translate_address: funcao auxiliar para realizar a traducao de enderecos virtuais para fisicos
+/* get_frame: funcao auxiliar para realizar a traducao de enderecos virtuais para fisicos
    'virtual_memory': memoria virtual
    'page_id': identificador unico da pagina */
-int translate_address(VirtualMemory *virtual_memory, int page_id)
+int get_frame(VirtualMemory *virtual_memory, int page_id)
 {
     // Verifica se o page_id esta dentro do intervalo valido (obs: provavelmente nao utilizado, pois o check ja e feito em 'allocate_page')
     if (page_id < 0 || page_id >= virtual_memory->total_of_pages)
@@ -207,11 +198,10 @@ int translate_address(VirtualMemory *virtual_memory, int page_id)
         return -1;
     }
 
-    // Obter o frame_id associado a pagina
     int frame_id = virtual_memory->page_table.pages[page_id].frame_id;
 
     // Depuracao: mostra o estado atual da pagina
-    printf("Debug: translate_address - Processo #%d, Pagina #%d, Frame ID = %d\n",
+    printf("Debug: Processo #%d, Pagina #%d, Frame ID = %d\n",
            virtual_memory->process_id, page_id, frame_id);
 
     return frame_id; // Retorna o frame_id (ou -1 se nao estiver mapeado)
@@ -222,7 +212,7 @@ int translate_address(VirtualMemory *virtual_memory, int page_id)
    'virtual_memory': memoria virtual
    'page_id': identificador unico da pagina
    'sleep_time': sleep */
-void allocate_page(PhysicalMemory *physical_memory, VirtualMemory *virtual_memory, int page_id, int sleep_time)
+void allocate_page(PhysicalMemory *physical_memory, VirtualMemory *virtual_memory, int page_id, int page_size, int sleep_time)
 {
     // Verifica se o page_id e valido: deve estar entre 0 e ('total_of_pages' - 1)
     if (page_id < 0 || page_id >= virtual_memory->total_of_pages)
@@ -246,8 +236,7 @@ void allocate_page(PhysicalMemory *physical_memory, VirtualMemory *virtual_memor
         return;
     }
 
-    // Traduz o endereco logico (page_id) para o endereco fisico (frame_id)
-    int frame_id = translate_address(virtual_memory, page_id);
+    int frame_id = get_frame(virtual_memory, page_id);
 
     printf("Debug: allocate_page - Processo #%d, Pagina #%d, Frame ID retornado = %d\n",
            virtual_memory->process_id, page_id, frame_id);
@@ -259,7 +248,7 @@ void allocate_page(PhysicalMemory *physical_memory, VirtualMemory *virtual_memor
         
         handle_page_fault(physical_memory, virtual_memory, page_id, sleep_time);
 
-        frame_id = translate_address(virtual_memory, page_id);
+        frame_id = get_frame(virtual_memory, page_id);
 
         if (frame_id != -1)
             printf("Pagina #%d do Processo #%d mapeada para Frame #%d apos Page Fault.\n", page_id, virtual_memory->process_id, frame_id);
@@ -277,7 +266,18 @@ void allocate_page(PhysicalMemory *physical_memory, VirtualMemory *virtual_memor
     // Atualizacao na tabela de paginas
     virtual_memory->page_table.pages[page_id].frame_id = frame_id;
 
+    Page logical_address = virtual_memory->page_table.pages[page_id];
+    printf("Endereco Logico da Pagina: %lu\n", (unsigned long)&logical_address);
+    sleep(sleep_time);
+
+    page_size = page_size * 1024;
+
+    int offset = (unsigned long)&logical_address % page_size;
+    int physical_address = (frame_id * page_size) + offset;
+    printf("Endereco Fisico da Pagina: %d\n", physical_address);
+
     printf("Pagina #%d do Processo #%d alocada no Frame #%d.\n", page_id, virtual_memory->process_id, frame_id);
+
 
     sleep(sleep_time);
     
@@ -496,7 +496,7 @@ int main()
             {
                 if (running_processes[i].process_id == process_id)
                 {
-                    allocate_page(&physical_memory, &running_processes[i], page_id, sleep_time);
+                    allocate_page(&physical_memory, &running_processes[i], page_id, total_of_pages, sleep_time);
                     found = 1;
                 }
             }

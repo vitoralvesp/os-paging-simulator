@@ -343,18 +343,18 @@ void allocate_page(PhysicalMemory *physical_memory, VirtualMemory *virtual_memor
         if (frame_id != -1) {
             printf("Pagina #%d do Processo #%d mapeada para Frame #%d apos Page Fault.\n", page_id, virtual_memory->process_id, frame_id);
             
-            unsigned long int logical_address = page_id * page_size;
-            printf("Endereco Logico da Pagina: %lu\n", logical_address);
+            Page logical_address = virtual_memory->page_table.pages[page_id];
+            printf("Endereco Logico da Pagina: %lu\n", (unsigned long)&logical_address);
             
             unsigned long int page_size_bytes = page_size * 1024;
 			
 			// Calcular o deslocamento
-			unsigned long int offset = logical_address % page_size_bytes;
+			unsigned long int offset = (unsigned long)&logical_address % page_size_bytes;
 			
 			// Calcular endereço físico
 			unsigned long int physical_address = (frame_id * page_size_bytes) + offset;
 			
-            printf("Endereco Fisico da Pagina: %d\n", physical_address);
+            printf("Endereco Fisico da Pagina: %ld\n", physical_address);
         }
             
         else {

@@ -13,3 +13,27 @@ PROCESS_CREATED: Processo #25 com 1 paginas inicializado.
 PAGEFAULT001
 PAGE_ALLOCATED: Pagina #0 do Processo #25 alocada no Frame #41.
 PAGE_ALLOCATED: Pagina #0 do Processo #25 alocada com sucesso no Frame #41.
+PHYSICAL_MEMORY_INITIALIZED: 8 frames alocados.
+PROCESS_CREATED: Processo #25 com 5 paginas inicializado.
+PAGEFAULT001
+PAGE_ALLOCATED: Pagina #0 do Processo #25 alocada no Frame #0.
+PAGE_ALLOCATED: Pagina #0 do Processo #25 alocada com sucesso no Frame #0.
+PAGEFAULT001
+PAGE_ALLOCATED: Pagina #1 do Processo #25 alocada no Frame #1.
+PAGE_ALLOCATED: Pagina #1 do Processo #25 alocada com sucesso no Frame #1.
+PAGEFAULT001
+PAGE_ALLOCATED: Pagina #3 do Processo #25 alocada no Frame #2.
+PAGE_ALLOCATED: Pagina #3 do Processo #25 alocada com sucesso no Frame #2.
+PAGEFAULT001
+PAGE_ALLOCATED: Pagina #4 do Processo #25 alocada no Frame #3.
+PAGE_ALLOCATED: Pagina #4 do Processo #25 alocada com sucesso no Frame #3.
+PROCESS_TERMINATED: Processo #25 exterminado.
+PHYSICAL_MEMORY_INITIALIZED: 8 frames alocados.
+PROCESS_CREATED: Processo #25 com 2 paginas inicializado.
+PAGEFAULT001
+PAGE_ALLOCATED: Pagina #0 do Processo #25 alocada no Frame #0.
+PAGE_ALLOCATED: Pagina #0 do Processo #25 alocada com sucesso no Frame #0.
+PAGEFAULT001
+PAGE_ALLOCATED: Pagina #1 do Processo #25 alocada no Frame #1.
+PAGE_ALLOCATED: Pagina #1 do Processo #25 alocada com sucesso no Frame #1.
+PROCESS_TERMINATED: Processo #25 exterminado.

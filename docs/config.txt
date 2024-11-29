@@ -1,4 +1,4 @@
-frame_size = 64 # 64 KB
+total_frames = 8 # 8 frames
 page_size = 4 # 4 KB
 processes = 2 # 2 processes
-sleep_time = 2 # 2 sec
+sleep_time = 2 # 2 seconds

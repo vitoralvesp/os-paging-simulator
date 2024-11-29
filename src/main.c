@@ -10,6 +10,7 @@ Tiago Silveira Lopez, 10417600
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <stdbool.h>
 #include <math.h>
 
 /* Page: estrutura da pagina
@@ -65,6 +66,14 @@ typedef struct
     PageTable page_table;
 } VirtualMemory;
 
+typedef struct {
+    int *frame_ids;
+    int capacity;
+    int front;
+    int rear;
+    int size;
+} Queue;
+
 /* log_operation: funcao auxiliar para gerar logs
    'message': mensagem de log */
 void log_operation(const char *message)
@@ -77,6 +86,67 @@ void log_operation(const char *message)
     }
     fprintf(log_file, "%s\n", message);
     fclose(log_file);
+}
+
+/* init_queue: funcao para inicializacao da fila */
+void init_queue(Queue *queue, int capacity) {
+    queue->frame_ids = (int *)malloc(capacity * sizeof(int));
+    queue->capacity = capacity;
+    queue->front = 0;
+    queue->rear = -1;
+    queue->size = 0;
+}
+
+/* is_queue_empty: fila vazia?? */
+bool is_queue_empty(Queue *queue) {
+    return queue->size == 0;
+}
+
+/* is_queue_full: fila cheia?? */
+bool is_queue_full(Queue *queue) {
+    return queue->size == queue->capacity;
+}
+
+/* enqueue: funcao para adicionar a fila
+            determinado frame */
+void enqueue(Queue *queue, int frame_id) {
+    if (is_queue_full(queue)) {
+        return;
+    }
+    queue->rear = (queue->rear + 1) % queue->capacity;
+    queue->frame_ids[queue->rear] = frame_id;
+    queue->size++;
+}
+
+/* dequeue: funcao para remover frame 
+            no inicio da fila*/
+int dequeue(Queue *queue) {
+    if (is_queue_empty(queue)) {
+        return -1;
+    }
+    int frame_id = queue->frame_ids[queue->front];
+    queue->front = (queue->front + 1) % queue->capacity;
+    queue->size--;
+    return frame_id;
+}
+
+/* remove_page_from_queue: funcao para remover um frame 
+            de um processo finalizado*/
+void remove_page_from_queue(Queue *queue, int frame_id) {
+    Queue temp_queue;
+    init_queue(&temp_queue, queue->capacity);
+
+    while (!is_queue_empty(queue)) {
+        int current_page = dequeue(queue);
+        if (current_page != frame_id) {
+            enqueue(&temp_queue, current_page);
+        }
+    }
+
+    while (!is_queue_empty(&temp_queue)) {
+        enqueue(queue, dequeue(&temp_queue));
+    }
+
 }
 
 /* init_process: funcao de inicializacao do processo
@@ -150,15 +220,27 @@ void init_physical_memory(PhysicalMemory *physical_memory, int total_of_frames)
    'virtual_memory': memoria virtual
    'page_id': identificador unico da pagina
    'sleep_time': tempo de espera durante a busca na memoria secundaria */
-void handle_page_fault(PhysicalMemory *physical_memory, VirtualMemory *virtual_memory, int page_id, int sleep_time)
+void handle_page_fault(PhysicalMemory *physical_memory, VirtualMemory *virtual_memory, int page_id, int sleep_time, Queue *FIFO_queue)
 {
     printf("PAGEFAULT001 - Pagina #%d do Processo #%d\n", page_id, virtual_memory->process_id);
     log_operation("PAGEFAULT001");
 
     sleep(sleep_time);
 
-    // Substituicao aleatoria
-    int victim_frame = rand() % physical_memory->total_of_frames;
+    int victim_frame;
+    
+    //Escolher frame
+    if (!is_queue_full(FIFO_queue)) {
+        for (int i = 0; i < physical_memory->total_of_frames; i++) {
+            if (physical_memory->frames[i].status == -1) {
+                victim_frame = i;
+                break;
+            }
+        }
+    } else { 
+        // Caso contrario todos os frames estão ocupados, frame a ser substituido eh o primeiro da fila
+        victim_frame = dequeue(FIFO_queue);
+    }
 
     // Substituir pagina no frame escolhido aleatoriamente
     Frame *frame = &physical_memory->frames[victim_frame];
@@ -174,10 +256,15 @@ void handle_page_fault(PhysicalMemory *physical_memory, VirtualMemory *virtual_m
         log_operation(log_msg);
 
     }
-
+    //Atualizar dados do frame: 'process_id' e 'page_id'
     frame->process_id = virtual_memory->process_id;
     frame->page_id = page_id;
+    //Atualizar tabela de paginas
     virtual_memory->page_table.pages[page_id].frame_id = victim_frame;
+    
+    //Adicionar na fila
+    enqueue(FIFO_queue, victim_frame);
+    
     printf("Pagina #%d alocada no Frame #%d\n", page_id, victim_frame);
     
     char log_msg[100];
@@ -185,7 +272,7 @@ void handle_page_fault(PhysicalMemory *physical_memory, VirtualMemory *virtual_m
     log_operation(log_msg);
 }
 
-/* get_frame: funcao auxiliar para realizar a traducao de enderecos virtuais para fisicos
+/* get_frame: funcao auxiliar para retornar frame alocado da página (-1 caso não esteja em nenhum frame)
    'virtual_memory': memoria virtual
    'page_id': identificador unico da pagina */
 int get_frame(VirtualMemory *virtual_memory, int page_id)
@@ -198,10 +285,11 @@ int get_frame(VirtualMemory *virtual_memory, int page_id)
         return -1;
     }
 
+    // Obter o frame_id associado a pagina
     int frame_id = virtual_memory->page_table.pages[page_id].frame_id;
 
     // Depuracao: mostra o estado atual da pagina
-    printf("Debug: Processo #%d, Pagina #%d, Frame ID = %d\n",
+    printf("Debug: translate_address - Processo #%d, Pagina #%d, Frame ID = %d\n",
            virtual_memory->process_id, page_id, frame_id);
 
     return frame_id; // Retorna o frame_id (ou -1 se nao estiver mapeado)
@@ -212,9 +300,9 @@ int get_frame(VirtualMemory *virtual_memory, int page_id)
    'virtual_memory': memoria virtual
    'page_id': identificador unico da pagina
    'sleep_time': sleep */
-void allocate_page(PhysicalMemory *physical_memory, VirtualMemory *virtual_memory, int page_id, int page_size, int sleep_time)
+void allocate_page(PhysicalMemory *physical_memory, VirtualMemory *virtual_memory, int page_id, int sleep_time, Queue *FIFO_queue, int page_size)
 {
-    // Verifica se o page_id e valido: deve estar entre 0 e ('total_of_pages' - 1)
+    // Verifica se o page_id e valido: deve estar entre 0 e ('virtual_memory->total_of_pages' - 1)
     if (page_id < 0 || page_id >= virtual_memory->total_of_pages)
     {
         printf("ERRO!!! ID de Pagina invalido: %d. Intervalo permitido: 0-%d.\n", 
@@ -236,6 +324,7 @@ void allocate_page(PhysicalMemory *physical_memory, VirtualMemory *virtual_memor
         return;
     }
 
+    // Traduz o endereco logico (page_id) para o endereco fisico (frame_id)
     int frame_id = get_frame(virtual_memory, page_id);
 
     printf("Debug: allocate_page - Processo #%d, Pagina #%d, Frame ID retornado = %d\n",
@@ -246,15 +335,32 @@ void allocate_page(PhysicalMemory *physical_memory, VirtualMemory *virtual_memor
         printf("PAGE FAULT! Pagina #%d do Processo #%d nao esta mapeada para nenhum Frame.\n", 
                page_id, virtual_memory->process_id);
         
-        handle_page_fault(physical_memory, virtual_memory, page_id, sleep_time);
-
+        handle_page_fault(physical_memory, virtual_memory, page_id, sleep_time, FIFO_queue);
+        
+        //Agora a pagina deve estar alocada, erro caso contrario
         frame_id = get_frame(virtual_memory, page_id);
 
-        if (frame_id != -1)
+        if (frame_id != -1) {
             printf("Pagina #%d do Processo #%d mapeada para Frame #%d apos Page Fault.\n", page_id, virtual_memory->process_id, frame_id);
-        else
+            
+            unsigned long int logical_address = page_id * page_size;
+            printf("Endereco Logico da Pagina: %lu\n", logical_address);
+            
+            unsigned long int page_size_bytes = page_size * 1024;
+			
+			// Calcular o deslocamento
+			unsigned long int offset = logical_address % page_size_bytes;
+			
+			// Calcular endereço físico
+			unsigned long int physical_address = (frame_id * page_size_bytes) + offset;
+			
+            printf("Endereco Fisico da Pagina: %d\n", physical_address);
+        }
+            
+        else {
             printf("ERRO!!! Pagina #%d do Processo #%d ainda nao esta mapeada apos Page Fault.\n",
                    page_id, virtual_memory->process_id);
+               }
     }
 
     // Pagina mapeada, alocando no frame correspondente
@@ -266,18 +372,7 @@ void allocate_page(PhysicalMemory *physical_memory, VirtualMemory *virtual_memor
     // Atualizacao na tabela de paginas
     virtual_memory->page_table.pages[page_id].frame_id = frame_id;
 
-    Page logical_address = virtual_memory->page_table.pages[page_id];
-    printf("Endereco Logico da Pagina: %lu\n", (unsigned long)&logical_address);
-    sleep(sleep_time);
-
-    page_size = page_size * 1024;
-
-    int offset = (unsigned long)&logical_address % page_size;
-    int physical_address = (frame_id * page_size) + offset;
-    printf("Endereco Fisico da Pagina: %d\n", physical_address);
-
     printf("Pagina #%d do Processo #%d alocada no Frame #%d.\n", page_id, virtual_memory->process_id, frame_id);
-
 
     sleep(sleep_time);
     
@@ -289,7 +384,7 @@ void allocate_page(PhysicalMemory *physical_memory, VirtualMemory *virtual_memor
 /* terminate_process: funcao auxiliar para finalizar um processo
    'physical_memory': memoria fisica
    'virtual_memory': memoria virtual */
-void terminate_process(PhysicalMemory *physical_memory, VirtualMemory *virtual_memory) {
+void terminate_process(PhysicalMemory *physical_memory, VirtualMemory *virtual_memory, Queue *FIFO_queue) {
 
     int pid = virtual_memory->process_id;
     printf("Finalizando Processo #%d...\n", pid);
@@ -301,6 +396,8 @@ void terminate_process(PhysicalMemory *physical_memory, VirtualMemory *virtual_m
             physical_memory->frames[frame_id].process_id = -1;
             physical_memory->frames[frame_id].page_id = -1;
             physical_memory->frames[frame_id].status = -1;
+            
+            remove_page_from_queue(FIFO_queue, frame_id);
         }
     }
 
@@ -405,7 +502,7 @@ int main()
     char key[100];
     int processes_idx = 0;
     int total_of_frames = 0;
-    int total_of_pages = 0;
+    int page_size = 0;
     int total_of_processes = 0;
     int sleep_time = 0;
 
@@ -413,30 +510,36 @@ int main()
     {
         if (sscanf(buffer, "%s = %d", key, &value))
         {
-            if (strcmp(key, "frame_size") == 0)
-                total_of_frames = value;
+            if (strcmp(key, "total_frames") == 0)
+                total_of_frames = value; //TOTAL DE FRAMES NA MEMÓRIA FÍSICA
             else if (strcmp(key, "page_size") == 0)
-                total_of_pages = value;
+                page_size = value;
             else if (strcmp(key, "processes") == 0)
-                total_of_processes = value;
+                total_of_processes = value; //TOTAL DE PROCESSOS
             else if (strcmp(key, "sleep_time") == 0)
-                sleep_time = value;
+                sleep_time = value; //TEMPO DE ESPERA PARA ACESSAR MEMÓRIA SECUNDÁRIA
         }
     }
     
     fclose(file_ptr);
     
-    if (!validate_configuration(total_of_frames, total_of_pages, total_of_processes, sleep_time)) {
+    if (!validate_configuration(total_of_frames, page_size, total_of_processes, sleep_time)) {
         printf("---\nERRO: Valores invalidos no arquivo de configuracao! Tente Novamente...\n");
         exit(1);
     }
     
     printf("Inicializando Memoria Fisica...\n");
     PhysicalMemory physical_memory;
+    Queue queue;
     init_physical_memory(&physical_memory, total_of_frames);
+    init_queue(&queue, total_of_frames);
     sleep(1);
 
     int menu_option;
+    int found;
+    int terminated = 0;
+    int displayed = 0;
+    int pid, total_pages = 0;
     VirtualMemory running_processes[total_of_processes];
 
     while (1)
@@ -469,11 +572,11 @@ int main()
                 break;
             }
 
-            int pid, total_pages;
+            pid, total_pages = 0;
             printf("---\nInsira o ID do Processo e o Total de Paginas (pid total): ");
             scanf("%d %d", &pid, &total_pages);
             
-            while (total_of_pages <= 0) {
+            while (total_pages <= 0) {
             	printf("---\nERRO: O numero total de paginas deve ser maior que zero!\n");
                 printf("\nInsira o ID do Processo e o Total de Paginas (pid total): ");
                 scanf("%d %d", &pid, &total_pages);
@@ -491,12 +594,13 @@ int main()
             int process_id, page_id;
             scanf("%d %d", &process_id, &page_id);
 
-            int found = 0;
+            found = 0;
+            
             for (int i = 0; i < processes_idx; i++)
             {
                 if (running_processes[i].process_id == process_id)
                 {
-                    allocate_page(&physical_memory, &running_processes[i], page_id, total_of_pages, sleep_time);
+                    allocate_page(&physical_memory, &running_processes[i], page_id, sleep_time, &queue, page_size);
                     found = 1;
                 }
             }
@@ -512,10 +616,9 @@ int main()
             int terminate_pid;
             scanf("%d", &terminate_pid);
 
-            int terminated = 0;
             for (int i = 0; i < processes_idx; i++) {
                 if (running_processes[i].process_id == terminate_pid) {
-                    terminate_process(&physical_memory, &running_processes[i]);
+                    terminate_process(&physical_memory, &running_processes[i], &queue);
                     terminated = 1;
                     break;
                 }
@@ -538,7 +641,6 @@ int main()
             int display_pid;
             scanf("%d", &display_pid);
 
-            int displayed = 0;
             for (int i = 0; i < processes_idx; i++) {
                 if (running_processes[i].process_id == display_pid) {
                     display_virtual_memory_status(&running_processes[i]);
